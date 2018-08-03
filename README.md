@@ -1,2 +1,2 @@
 # Zenva_Node_Tutorial
-This is a tutorial on NodeJS
+This section is about adding CSS to the retireved json data on local webserver.
