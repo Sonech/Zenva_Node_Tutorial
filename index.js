@@ -1,11 +1,14 @@
 var http = require('http');
 var request = require('request');
 var fs = require('fs');
+var csv = require('csv');
+var url = require('url');
 
-var request_body = undefined;
+var json_request_body = undefined;
+var csv_request_body = undefined;
 var html_content = undefined;
 
-/Create HTML string from Json/
+//Create HTML string from Json
 function createHtmlStringFromJson(retrievedData) {
 	var body_begin_index = html_content.indexOf('<body>');
 	var body_end_index = html_content.indexOf('</body>');
@@ -13,25 +16,52 @@ function createHtmlStringFromJson(retrievedData) {
 	var string_until_body = html_content.slice(0, body_begin_index + 6);
 	var string_from_body = html_content.slice(body_end_index);
 
-	html_string = '<table>\n';
+	var html_string = '<table>\n';
 	html_string += '<tr>\n';
 	for (var attribute in retrievedData[0]) {
-	/if attribute is not an object then add it to HTML table cell/
-	  if (typeof retrievedData[0][attribute] !== 'object') {
-	  	html_string += '<td>' + attribute + '</td>\n';
-	  }
+		if (typeof retrievedData[0][attribute] !== 'object') {
+			html_string += '<td>' + attribute + '</td>\n';
+		}
 	}
+	
 	html_string += '</tr>\n';
 
-	/For each data add a table row/
 	retrievedData.forEach(function(object) {
+		html_string += '<tr>\n';
+		for (var attribute in object) {
+			if (typeof object[attribute] !== 'object') {
+				html_string += '<td>' + object[attribute] + '</td>\n';
+			}
+		}
+		html_string += '</tr>\n';
+	});
+
+	html_string += '</table>';
+	return string_until_body + html_string + string_from_body;
+}
+//Create HTML string from CSV
+function createHtmlStringFromCsv(retrievedData) {
+	var body_begin_index = html_content.indexOf('<body>');
+	var body_end_index = html_content.indexOf('</body>');
+
+	var string_until_body = html_content.slice(0, body_begin_index + 6);
+	var string_from_body = html_content.slice(body_end_index);
+
+	var html_string = '<table>\n';
+	html_string += '<tr>\n';
+	retrievedData[0].forEach(function (attribute) {
+		html_string += '<td>' + attribute + '</td>\n';
+	});
+	
+	html_string += '</tr>\n';
+
+	var data = retrievedData.slice(1);
+//For each data add a table row
+	data.forEach(function(row) {
 	 html_string += '<tr>\n';
-	 for (var attribute in object) {
-	/if attribute is not an object then add it to HTML table cell/
-	  if (typeof object[attribute] !== 'object') {
-	  	html_string += '<td>' + object[attribute] + '</td>\n';
-	  }
-	}
+	 row.forEach(function (cell) {
+	 	html_string += '<td>' + cell + '</td>\n';
+	 });
 	html_string += '</tr>\n';	
 	});
 
@@ -40,13 +70,29 @@ function createHtmlStringFromJson(retrievedData) {
 }
 
 request('https://www.bnefoodtrucks.com.au/api/1/trucks', function (err, request_res, body) {
-	request_body = body;
+	json_request_body = body;
+});
+
+request('https://www.data.brisbane.qld.gov.au/data/dataset/1e11bcdd-fab1-4ec5-b671-396fd1e6dd70/resource/3c972b8e-9340-4b6d-8c7b-2ed988aa3343/download/brisbane-public-art-collection-jul-2016-rev-1.2.csv', function (err, request_res, body) {
+  csv.parse(body, function(err, data) {
+  	csv_request_body = data;
+  });
 });
 
 http.createServer(function (req, res) {
-	if (request_body && html_content) {
+	if (json_request_body && csv_request_body && html_content) {
 		res.writeHead(200, {'Content-Type': 'text/html'});
-		res.end(createHtmlStringFromJson(JSON.parse(request_body)));
+		var request_url = url.parse(req.url);
+		switch (request_url.path) {
+		 case '/json':
+			res.end(createHtmlStringFromJson(JSON.parse(json_request_body)));
+			break;
+		 case '/csv':
+			res.end(createHtmlStringFromCsv(csv_request_body));
+			break;
+		}
+		
+		
 	} else {
 		res.writeHead(200, {'Content-Type': 'text/plain'});
 		res.end('Nothing retrieved yet');
