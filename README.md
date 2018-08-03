@@ -1,2 +1,2 @@
 # Zenva_Node_Tutorial
-Zenva Node Tutorial
+This section of the tutorial is about adding CSS style on json retrieved data
